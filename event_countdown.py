@@ -31,8 +31,8 @@ def build_speechlet_response(title, output, reprompt_text, should_end_session):
         },
         'card': {
             'type': 'Simple',
-            'title': "SessionSpeechlet - " + title,
-            'content': "SessionSpeechlet - " + output
+            'title': title,
+            'content': output
         },
         'reprompt': {
             'outputSpeech': {
@@ -60,7 +60,7 @@ def get_welcome_response():
     """
 
     session_attributes = {}
-    card_title = "Welcome"
+    card_title = "Event Countdown Welcome"
     speech_output = "Welcome to Event Countdown. " \
                     "You can add an event with a name and date, list all events, " \
                     "or countdown to an event"
@@ -74,7 +74,7 @@ def get_welcome_response():
 
 
 def handle_session_end_request():
-    card_title = "Session Ended"
+    card_title = "Goodbye from Event Countdown"
     speech_output = "Thank you for trying Event Countdown by Adventures with Anthony. " \
                     "Have a nice day! "
     # Setting this to true ends the session and exits the skill.
@@ -111,7 +111,7 @@ def set_event_in_session(intent, session):
     user.
     """
 
-    card_title = intent['name']
+    card_title = "Adding a New Event"
     session_attributes = {}
     should_end_session = False
 
@@ -164,6 +164,7 @@ def set_event_in_session(intent, session):
 def get_events_from_session(intent, session):
     session_attributes = {}
     reprompt_text = None
+    title = "Event List"
     
     try:
         events = ""
@@ -222,16 +223,17 @@ def get_events_from_session(intent, session):
     # the user. If the user does not respond or says something that is not
     # understood, the session will end.
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, reprompt_text, should_end_session))
+        title, speech_output, reprompt_text, should_end_session))
         
 def set_date_in_session(intent, session):
     
-    card_title = intent['name']
+    card_title = "Adding Date for Event"
     session_attributes = {}
     should_end_session = False
 
     if 'event' in intent['slots'] and 'date' in intent['slots']:
         event_name = intent['slots']['event']['value']
+        card_title = "Adding Date for " + event_name
         start_date = intent['slots']['date']['value']
         session_attributes = create_event_attributes(event_name, start_date)
         speech_output = "I now know your event on " + start_date + "is named " + \
@@ -250,11 +252,11 @@ def set_date_in_session(intent, session):
                         "Please try again."
                         
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, reprompt_text, should_end_session))
+        card_title, speech_output, reprompt_text, should_end_session))
         
 def get_countdown_from_session(intent, session):
     
-    card_title = intent['name']
+    card_title = "Countdown to Event"
     session_attributes = {}
     should_end_session = False
     
@@ -264,6 +266,7 @@ def get_countdown_from_session(intent, session):
     if 'event' in intent['slots']:
         if 'value' in intent['slots']['event']:
             eventName = intent['slots']['event']['value']
+            card_title = "Countdown to " + eventName
             try:
                 global userID
                 global eventList
@@ -323,18 +326,18 @@ def get_countdown_from_session(intent, session):
         else:
             speech_output = "I don't know the date for your event. " \
                             "You can tell me the date by saying " + eventName + " is on May Fifth Twenty Eighteen"
-            reprompt_text = speech_output
+            reprompt_text = "You can tell me the date by saying " + eventName + " is on May Fifth Twenty Eighteen"
             return build_response(session_attributes, build_speechlet_response(
-                intent['name'], speech_output, reprompt_text, should_end_session))
+                card_title, speech_output, reprompt_text, should_end_session))
             
     startDate = datetime.datetime.strptime(startDate, '%Y-%m-%d').date()
     delta = startDate - curDate
     days = delta.days
     
     speech_output = "There are " + str(days) + " days until " + eventName
-    should_end_session = False
+    should_end_session = True
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, None, should_end_session))
+        card_title, speech_output, None, should_end_session))
         
 def yes(intent, session):
     card_title = intent['name']
@@ -355,6 +358,8 @@ def yes(intent, session):
             days = delta.days
         
             speech_output = "There are " + str(days) + " days until " + currentlyCheckingEvent
+            reprompt_text = None
+            should_end_session = True
         elif yesNoActivity == "delete":
             try:
                 dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
@@ -369,14 +374,15 @@ def yes(intent, session):
                     eventList.pop(currentlyCheckingEvent.lower())
                 speech_output = "The event " + currentlyCheckingEvent + " was successfully deleted."
                 reprompt_text = None
+                should_end_session = True
             except ClientError as e:
                 print(e.response)
                 speech_output = "There was a problem deleting " + eventName + ". Please try again."
-                reprompt_text = None
+                reprompt_text = speech_output
     else:
         speech_output = "I did not ask a yes or no question."
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, None, should_end_session))
+        "Answered Yes", speech_output, None, should_end_session))
     
 def no(intent, session):
     card_title = intent['name']
@@ -399,12 +405,12 @@ def no(intent, session):
             reprompt_text = "You can add an event, list all events, or countdown to a specific event"
     else:
         speech_output = "I did not ask a yes or no question."
-        reprompt_text = None
+        reprompt_text = "You can add an event, list all events, or countdown to a specific event"
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, None, should_end_session))   
+        "Answered No", speech_output, None, should_end_session))   
         
 def delete_event(intent, session):
-    card_title = intent['name']
+    card_title = "Deleting Event"
     session_attributes = {}
     should_end_session = False
     
@@ -418,6 +424,7 @@ def delete_event(intent, session):
     
     if 'event' in intent['slots'] and 'value' in intent['slots']['event']:
         eventName = intent['slots']['event']['value']
+        card_title = "Deleting " + eventName
         if not dbQueried:
             populateEvents()
             
@@ -437,7 +444,7 @@ def delete_event(intent, session):
                 speech_output = "There are " + str(posEvents) + " possible events that match " + eventName + ". Did you mean " + currentlyCheckingEvent + "?"
                 reprompt_text = speech_output
                 return build_response(session_attributes, build_speechlet_response(
-                    intent['name'], speech_output, reprompt_text, should_end_session))
+                    card_title, speech_output, reprompt_text, should_end_session))
         try:
             dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
             table = dynamodb.Table('EventCountdown')
@@ -451,16 +458,17 @@ def delete_event(intent, session):
                 eventList.pop(eventName.lower())
             speech_output = "The event " + eventName + " was successfully deleted."
             reprompt_text = None
+            should_end_session = True
         except ClientError as e:
             print(e.response)
             speech_output = "There was a problem deleting " + eventName + ". Please try again."
-            reprompt_text = None
+            reprompt_text = speech_output
     else:
         speech_output = "I'm sorry, I was unable to find that event. Please try again."
-        reprompt_text = None
+        reprompt_text = speech_output
         
     return build_response(session_attributes, build_speechlet_response(
-        intent['name'], speech_output, None, should_end_session))   
+        card_title, speech_output, None, should_end_session))   
         
 def populateEvents():
     global userID
